@@ -15,9 +15,6 @@ grammar FlowQuery
   rule param_list
     '(' space first:param_declaration space rest:(',' space param:param_declaration space)* ')' {
       def params; [first] + rest.elements.map(&:param); end
-    } /
-    '(' space ')' {
-      def params; []; end
     }
   end
 
@@ -27,20 +24,21 @@ grammar FlowQuery
   end
 
   rule expression
-    function_application
+    function_application / variable_reference
   end
 
   rule function_application
-    name:identifier space argument_list:argument_list? <FunctionApplication>
+    name:identifier space argument_list:argument_list <FunctionApplication>
   end
 
   rule argument_list
     '(' space first:expression space rest:(',' space argument:expression space)* ')' {
       def arguments; [first] + rest.elements.map(&:argument); end
-    } /
-    '(' space ')' {
-      def arguments; []; end
     }
+  end
+
+  rule variable_reference
+    name:identifier space <VariableReference>
   end
 
 

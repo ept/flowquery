@@ -46,7 +46,7 @@ module FlowQuery
 
   class FunctionApplication < SyntaxNode
     def arguments
-      argument_list.respond_to?(:arguments) ? argument_list.arguments : []
+      argument_list.arguments
     end
 
     def bind_variables(variable_binding)
@@ -55,7 +55,17 @@ module FlowQuery
     end
 
     def to_s
-      if arguments.empty? then name.to_s else "#{name}(#{arguments.map(&:to_s).join(', ')})" end
+      "#{name}(#{arguments.map(&:to_s).join(', ')})"
+    end
+  end
+
+  class VariableReference < SyntaxNode
+    def bind_variables(variable_binding)
+      self.variable = variable_binding.reference(name, self)
+    end
+
+    def to_s
+      name.to_s
     end
   end
 
