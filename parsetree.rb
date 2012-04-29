@@ -42,8 +42,16 @@ module FlowQuery
       graph.add_edge(value, self)
     end
 
+    def signature
+      "#{defined_name}(#{params.map(&:to_s).join(', ')})"
+    end
+
     def to_s
-      "#{defined_name}(#{params.map(&:to_s).join(', ')}) = #{value}"
+      "#{signature} = #{value}"
+    end
+
+    def label
+      defined_name
     end
   end
 
@@ -60,6 +68,10 @@ module FlowQuery
     def to_s
       "#{type} #{name}"
     end
+
+    def label
+      name
+    end
   end
 
 
@@ -75,9 +87,9 @@ module FlowQuery
 
     def track_dependencies(graph)
       arguments.each{|argument| argument.track_dependencies(graph) }
-      graph.add_vertex(self)
-      arguments.zip(variable.definition.params).each do |argument, param|
-        graph.add_edge(argument, self, param ? param.name : '')
+      graph.add_vertex(self, :function => variable.definition.label, :params => variable.definition.params)
+      arguments.each_with_index do |argument, index|
+        graph.add_edge(argument, self, :param_index => index)
       end
     end
 
@@ -138,7 +150,10 @@ module FlowQuery
     end
 
     def track_dependencies(graph)
-      functions.each{|function| function.track_dependencies(graph) }
+      functions.each do |function|
+        graph.next_function(function.signature)
+        function.track_dependencies(graph)
+      end
     end
 
     def to_s
