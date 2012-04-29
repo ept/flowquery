@@ -1,0 +1,88 @@
+grammar FlowQuery
+  rule query_file
+    space first:function_definition space rest:(';' space function:function_definition space)* ';'? space
+    <QueryFile> {
+      def functions; [first] + rest.elements.map(&:function); end
+    }
+  end
+
+  rule function_definition
+    defined_name:identifier space param_list:param_list? space '=' space value:expression
+    <FunctionDefinition>
+  end
+
+  # The list of declared parameters on the left-hand side of a function definition
+  rule param_list
+    '(' space first:param_declaration space rest:(',' space param:param_declaration space)* ')' {
+      def params; [first] + rest.elements.map(&:param); end
+    } /
+    '(' space ')' {
+      def params; []; end
+    }
+  end
+
+  # A single declared parameter in a function definition
+  rule param_declaration
+    type:identifier separator name:identifier <ParamDeclaration>
+  end
+
+  rule expression
+    function_application
+  end
+
+  rule function_application
+    name:identifier space argument_list:argument_list? <FunctionApplication>
+  end
+
+  rule argument_list
+    '(' space first:expression space rest:(',' space argument:expression space)* ')' {
+      def arguments; [first] + rest.elements.map(&:argument); end
+    } /
+    '(' space ')' {
+      def arguments; []; end
+    }
+  end
+
+
+  # ======== Primitives ========
+
+  # Any place where optional whitespace or comments may be inserted
+  rule space
+    separator?
+  end
+
+  # Any place where separation by whitespace or comments is required (e.g. between two words)
+  rule separator
+    (whitespace / block_comment / line_comment)+
+  end
+
+  rule block_comment
+    '/*'
+    ( !'*/' (. / "\n") )*
+    '*/'
+  end
+
+  rule line_comment
+    '//' (!"\n" .)*
+  end
+
+  rule keyword
+    ('select' / 'from' / 'where') !identifier_char
+  end
+
+  rule identifier
+    !keyword identifier_start_char identifier_char* <Identifier>
+  end
+
+  rule identifier_start_char
+	[a-zA-Z_]
+  end
+
+  rule identifier_char
+    identifier_start_char / [0-9]
+  end
+
+  rule whitespace
+    [\t\r\n ]
+  end
+end
