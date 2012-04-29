@@ -1,4 +1,6 @@
 require 'rubygems'
 require 'treetop'
 require './parsetree'
+require './variable_binding'
+require './dependency_graph'
 require './grammar'
