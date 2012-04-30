@@ -1,13 +1,29 @@
 grammar FlowQuery
   rule query_file
-    space first:function_definition space rest:(';' space function:function_definition space)* ';'? space
+    space first:definition space rest:(';' space definition:definition space)* ';'? space
     <QueryFile> {
-      def functions; [first] + rest.elements.map(&:function); end
+      def definitions; [first] + rest.elements.map(&:definition); end
     }
   end
 
+  rule definition
+    table_definition / function_definition
+  end
+
+  rule table_definition
+    'create' separator 'table' separator defined_name:identifier space '(' space
+    first:column_declaration space rest:(',' space column:column_declaration space)* ')'
+    <TableDefinition> {
+      def columns; [first] + rest.elements.map(&:column); end
+    }
+  end
+
+  rule column_declaration
+    name:identifier separator type:identifier <ColumnDeclaration>
+  end
+
   rule function_definition
-    defined_name:identifier space param_list:param_list? space '=' space value:expression
+    defined_name:identifier space param_list:param_list? space '=' space value:function_rhs
     <FunctionDefinition>
   end
 
@@ -21,6 +37,10 @@ grammar FlowQuery
   # A single declared parameter in a function definition
   rule param_declaration
     type:identifier separator name:identifier <ParamDeclaration>
+  end
+
+  rule function_rhs
+    expression / select_statement
   end
 
   rule expression
@@ -38,7 +58,27 @@ grammar FlowQuery
   end
 
   rule variable_reference
-    name:identifier space <VariableReference>
+    name:identifier '' <VariableReference>
+  end
+
+  rule select_statement
+    'select' separator columns:select_columns separator
+    'from' separator table_name:variable_reference
+    where_clause:(separator 'where' separator predicate:expression)?
+    <SelectStatement> {
+      def predicate; where_clause.predicate if where_clause.respond_to?(:predicate); end
+    }
+  end
+
+  rule select_columns
+    '*' {
+      def all?; true; end
+      def column_names; []; end
+    } /
+    first:identifier space rest:(',' space column:identifier space)* {
+      def all?; false; end
+      def column_names; [first] + rest.elements.map(&:column); end
+    }
   end
 
 
@@ -65,7 +105,7 @@ grammar FlowQuery
   end
 
   rule keyword
-    ('select' / 'from' / 'where') !identifier_char
+    ('select' / 'from' / 'where' / 'create' / 'table') !identifier_char
   end
 
   rule identifier

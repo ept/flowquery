@@ -57,7 +57,7 @@ module FlowQuery
           html = '<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"><TR>'
           html << %Q(<TD>#{h(vertex_hash[:function])}</TD>)
           vertex_hash[:params].each_with_index do |param, index|
-            html << %Q(<TD PORT="#{index}">#{h(param.name)}</TD>)
+            html << %Q(<TD PORT="#{index}">#{h(param)}</TD>)
           end
           html << %Q(</TR><TR><TD COLSPAN="#{vertex_hash[:params].size + 1}">#{h(label)}</TD></TR></TABLE>)
           "        v#{id} [shape=none, margin=0, label=<#{html}>];\n"

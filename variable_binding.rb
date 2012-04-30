@@ -1,4 +1,21 @@
 module FlowQuery
+  class Variable
+    attr_reader :name, :definition, :references, :scope
+
+    def initialize(name, scope)
+      @name = name.to_s
+      @definition = nil
+      @references = []
+      @scope = scope
+    end
+
+    def definition=(new_definition)
+      raise SyntaxError, "duplicate variable #{name}" if definition
+      @definition = new_definition
+    end
+  end
+
+
   class VariableBinding
     attr_reader :parent
 
@@ -9,20 +26,8 @@ module FlowQuery
 
     def [](name)
       name = name.to_s
-
-      if @variables.include? name
-        # Variable already defined in local scope
-        @variables[name]
-
-      elsif parent
-        # This is an inner scope; search outer scope
-        parent[name]
-
-      else
-        # This is already the global scope; create a reference without definition, and hopefully
-        # we'll get to fill in the definition later.
-        @variables[name] = Variable.new(name, self)
-      end
+      raise SyntaxError, "ambiguous variable name: #{name}" if @variables[name] && parent && parent[name]
+      @variables[name] || parent && parent[name]
     end
 
     def define(name, node)
@@ -32,7 +37,18 @@ module FlowQuery
     end
 
     def reference(name, node)
-      self[name].tap{|var| var.references << node }
+      if var = self[name]
+        # The variable is already defined, so we can just reference it.
+        var.references << node
+        var
+      elsif parent
+        # This is an inner scope, but we want to create the reference in the global scope.
+        parent.reference(name, node)
+      else
+        # This is already the global scope; create a reference without definition, and hopefully
+        # we'll get to fill in the definition later.
+        @variables[name.to_s] = Variable.new(name, self).tap{|var| var.references << node }
+      end
     end
 
     def variables
@@ -47,20 +63,30 @@ module FlowQuery
       parent.nil?
     end
 
-    class Variable
-      attr_reader :name, :definition, :references, :scope
+    def record_context?
+      false
+    end
+  end
 
-      def initialize(name, scope)
-        @name = name
-        @definition = nil
-        @references = []
-        @scope = scope
-      end
 
-      def definition=(new_definition)
-        raise SyntaxError, "duplicate variable #{name}" if definition
-        @definition = new_definition
+  # Binding for scopes where the fields of a record are made available as local variables.
+  # For example, in the 'where' clause of a 'select' statement, the columns of the table from
+  # which we're selecting are made available.
+  class RecordBinding < VariableBinding
+    def initialize(parent, source_node, fields)
+      super(parent)
+      @variables = fields.each_with_object({}) do |field, vars|
+        name = field.to_s
+        vars[name] = Variable.new(name, self).tap{|var| var.definition = source_node }
       end
+    end
+
+    def define(name, node)
+      raise 'cannot define new variables in a RecordBinding'
+    end
+
+    def record_context?
+      true
     end
   end
 end

@@ -23,6 +23,24 @@ module FlowQuery
   end
 
 
+  class TableDefinition < SyntaxNode
+    def bind_variables(variable_binding)
+      self.variable = variable_binding.define(defined_name, self)
+    end
+
+    def to_s
+      "create table #{defined_name} (#{columns.map(&:to_s).join(', ')})"
+    end
+  end
+
+
+  class ColumnDeclaration < SyntaxNode
+    def to_s
+      "#{name} #{type}"
+    end
+  end
+
+
   class FunctionDefinition < SyntaxNode
     def params
       param_list.respond_to?(:params) ? param_list.params : []
@@ -87,7 +105,7 @@ module FlowQuery
 
     def track_dependencies(graph)
       arguments.each{|argument| argument.track_dependencies(graph) }
-      graph.add_vertex(self, :function => variable.definition.label, :params => variable.definition.params)
+      graph.add_vertex(self, :function => variable.definition.label, :params => variable.definition.params.map(&:name))
       arguments.each_with_index do |argument, index|
         graph.add_edge(argument, self, :param_index => index)
       end
@@ -107,6 +125,9 @@ module FlowQuery
     def track_dependencies(graph)
       if variable.scope.global?
         graph.add_vertex(self) # keep dependencies local to each function, to keep the graph acyclic
+      elsif variable.scope.record_context?
+        graph.add_vertex(self)
+        graph.add_edge(variable.definition, self)
       else
         self.dependency_id = variable.definition.dependency_id or raise "untracked variable #{name}"
       end
@@ -114,6 +135,45 @@ module FlowQuery
 
     def to_s
       name.to_s
+    end
+  end
+
+
+  class SelectStatement < SyntaxNode
+    def bind_variables(variable_binding)
+      table_name.bind_variables(variable_binding)
+
+      # tables are bound before functions (regardless of their order in the source file), so if we
+      # don't yet know a definition for the table at this point, it's definitely an error.
+      unless table_name.variable.definition.respond_to? :columns
+        raise SyntaxError, "undefined table: #{table_name}"
+      end
+
+      if predicate
+        column_names = table_name.variable.definition.columns.map(&:name)
+        inner_binding = RecordBinding.new(variable_binding, table_name, column_names)
+        predicate.bind_variables(inner_binding)
+      end
+    end
+
+    def track_dependencies(graph)
+      table_name.track_dependencies(graph)
+      if predicate
+        predicate.track_dependencies(graph)
+        graph.add_vertex(self, :function => 'filter', :params => ['source', 'predicate'])
+        graph.add_edge(table_name, self, :param_index => 0)
+        graph.add_edge(predicate, self, :param_index => 1)
+      else
+        self.dependency_id = table_name.dependency_id
+      end
+    end
+
+    def to_s
+      str = 'select '
+      str << (columns.all? ? '*' : columns.column_names.map(&:to_s).join(', '))
+      str << " from #{table_name}"
+      str << " where #{predicate}" if predicate
+      str
     end
   end
 
@@ -126,6 +186,14 @@ module FlowQuery
       tree.variables
       tree.dependencies
       tree
+    end
+
+    def tables
+      @tables ||= definitions.select{|definition| definition.is_a? TableDefinition }
+    end
+
+    def functions
+      @functions ||= definitions.select{|definition| definition.is_a? FunctionDefinition }
     end
 
     def variables
@@ -146,6 +214,7 @@ module FlowQuery
     end
 
     def bind_variables(variable_binding)
+      tables.each{|table| table.bind_variables(variable_binding) }
       functions.each{|function| function.bind_variables(variable_binding) }
     end
 
@@ -157,7 +226,7 @@ module FlowQuery
     end
 
     def to_s
-      functions.map(&:to_s).join('; ')
+      definitions.map(&:to_s).join('; ')
     end
   end
 end
