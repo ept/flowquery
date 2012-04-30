@@ -44,7 +44,15 @@ grammar FlowQuery
   end
 
   rule expression
+    equals_op / operand
+  end
+
+  rule operand
     function_application / variable_reference
+  end
+
+  rule equals_op
+    left:operand space '=' space right:operand <EqualsOp>
   end
 
   rule function_application

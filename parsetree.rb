@@ -139,6 +139,26 @@ module FlowQuery
   end
 
 
+  class EqualsOp < SyntaxNode
+    def bind_variables(variable_binding)
+      left.bind_variables(variable_binding)
+      right.bind_variables(variable_binding)
+    end
+
+    def track_dependencies(graph)
+      left.track_dependencies(graph)
+      right.track_dependencies(graph)
+      graph.add_vertex(self)
+      graph.add_edge(left, self)
+      graph.add_edge(right, self)
+    end
+
+    def to_s
+      "#{left} = #{right}"
+    end
+  end
+
+
   class SelectStatement < SyntaxNode
     def bind_variables(variable_binding)
       table_name.bind_variables(variable_binding)
