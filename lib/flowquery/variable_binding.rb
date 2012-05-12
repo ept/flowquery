@@ -10,7 +10,7 @@ module Flowquery
     end
 
     def definition=(new_definition)
-      raise SyntaxError, "duplicate variable #{name}" if definition
+      raise ParseError, "duplicate variable #{name}" if definition
       @definition = new_definition
     end
   end
@@ -26,7 +26,7 @@ module Flowquery
 
     def [](name)
       name = name.to_s
-      raise SyntaxError, "ambiguous variable name: #{name}" if @variables[name] && parent && parent[name]
+      raise ParseError, "ambiguous variable name: #{name}" if @variables[name] && parent && parent[name]
       @variables[name] || parent && parent[name]
     end
 

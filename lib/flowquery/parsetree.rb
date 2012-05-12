@@ -166,7 +166,7 @@ module Flowquery
       # tables are bound before functions (regardless of their order in the source file), so if we
       # don't yet know a definition for the table at this point, it's definitely an error.
       unless table_name.variable.definition.respond_to? :columns
-        raise SyntaxError, "undefined table: #{table_name}"
+        raise ParseError, "undefined table: #{table_name}"
       end
 
       if predicate
@@ -201,8 +201,8 @@ module Flowquery
   class QueryFile < SyntaxNode
     def self.parse(query_file)
       parser = FlowqueryParser.new
-      tree = parser.parse(query_file) or raise SyntaxError, parser.failure_reason
-      raise SyntaxError, 'file is not a complete query' unless tree.is_a? QueryFile
+      tree = parser.parse(query_file) or raise ParseError, parser.failure_reason
+      raise ParseError, 'file is not a complete query' unless tree.is_a? QueryFile
       tree.variables
       tree.dependencies
       tree
@@ -221,7 +221,7 @@ module Flowquery
       @variables = VariableBinding.new
       bind_variables(@variables)
       if !(undefined = @variables.undefined).empty?
-        raise SyntaxError, "undefined variable: #{undefined.map(&:name).join(', ')}"
+        raise ParseError, "undefined variable: #{undefined.map(&:name).join(', ')}"
       end
       @variables
     end
