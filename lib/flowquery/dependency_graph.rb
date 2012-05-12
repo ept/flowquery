@@ -1,4 +1,4 @@
-module FlowQuery
+module Flowquery
   class DependencyGraph
     def initialize
       @dependency_ids = 0

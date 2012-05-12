@@ -1,4 +1,4 @@
-module FlowQuery
+module Flowquery
   class SyntaxNode < Treetop::Runtime::SyntaxNode
     attr_accessor :variable, :dependency_id
 
@@ -200,7 +200,7 @@ module FlowQuery
 
   class QueryFile < SyntaxNode
     def self.parse(query_file)
-      parser = FlowQueryParser.new
+      parser = FlowqueryParser.new
       tree = parser.parse(query_file) or raise SyntaxError, parser.failure_reason
       raise SyntaxError, 'file is not a complete query' unless tree.is_a? QueryFile
       tree.variables

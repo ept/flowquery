@@ -1,4 +1,4 @@
-grammar FlowQuery
+grammar Flowquery
   rule query_file
     space first:definition space rest:(';' space definition:definition space)* ';'? space
     <QueryFile> {

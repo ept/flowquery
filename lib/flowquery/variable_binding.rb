@@ -1,4 +1,4 @@
-module FlowQuery
+module Flowquery
   class Variable
     attr_reader :name, :definition, :references, :scope
 

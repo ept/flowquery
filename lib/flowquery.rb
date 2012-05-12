@@ -6,3 +6,5 @@ require 'treetop'
 end
 
 Treetop.load(File.join(File.dirname(__FILE__), 'flowquery', 'grammar.treetop'))
+
+FlowQuery = Flowquery
