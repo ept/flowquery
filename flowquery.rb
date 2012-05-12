@@ -3,4 +3,4 @@ require 'treetop'
 require './parsetree'
 require './variable_binding'
 require './dependency_graph'
-require './grammar'
+Treetop.load('./grammar.treetop')
