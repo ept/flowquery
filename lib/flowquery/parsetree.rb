@@ -106,6 +106,22 @@ module Flowquery
   end
 
 
+  class ParenExpression < SyntaxNode
+    def bind_variables(variable_binding)
+      expression.bind_variables(variable_binding)
+    end
+
+    def track_dependencies(graph)
+      expression.track_dependencies(graph)
+      self.dependency_id = expression.dependency_id
+    end
+
+    def to_s
+      "(#{expression})"
+    end
+  end
+
+
   class FunctionApplication < SyntaxNode
     def arguments
       argument_list.arguments

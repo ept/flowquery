@@ -21,6 +21,14 @@ describe 'Query parsing' do
       query.variables['f'].should_not be_nil
     end
 
+    it 'should allow extra parentheses around expressions' do
+      Flowquery.parse('f(x, y) = (y)')
+    end
+
+    it 'should allow extra parentheses around function arguments' do
+      Flowquery.parse('f(x, y) = x; g(x, y) = f((g(x, y)), g(y, ( x )))')
+    end
+
     it 'should allow table definitions' do
       query = Flowquery.parse('create table attendances (user_id int, concert_id int)')
       query.variables['attendances'].definition.should be_kind_of(Flowquery::TableDefinition)
@@ -64,7 +72,14 @@ describe 'Query parsing' do
 
     it 'should not allow incomplete function definitions' do
       lambda {
-        Flowquery.parse('f(x) = ') }.should raise_error(Flowquery::ParseError)
+        Flowquery.parse('f(x) = ')
+      }.should raise_error(Flowquery::ParseError)
+    end
+
+    it 'should not allow unmatched parentheses' do
+      lambda {
+        Flowquery.parse('f(x) = x; g(x) = f(g(x)')
+      }.should raise_error(Flowquery::ParseError)
     end
 
     it 'should not allow references to unbound variables' do

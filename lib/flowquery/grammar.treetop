@@ -44,7 +44,11 @@ grammar Flowquery
   end
 
   rule expression
-    equals_op / operand
+    paren_expression / equals_op / function_application / variable_reference
+  end
+
+  rule paren_expression
+    '(' space expression:expression space ')' <ParenExpression>
   end
 
   rule operand
