@@ -83,7 +83,7 @@ grammar Flowquery
       def all?; true; end
       def column_names; []; end
     } /
-    first:identifier space rest:(',' space column:identifier space)* {
+    first:identifier rest:(space ',' space column:identifier space)* {
       def all?; false; end
       def column_names; [first] + rest.elements.map(&:column); end
     }
