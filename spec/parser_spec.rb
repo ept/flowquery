@@ -97,6 +97,12 @@ describe 'Query parsing' do
       }.should raise_error(Flowquery::ParseError, /duplicate variable x/)
     end
 
+    it 'should not allow multiple table columns of the same name' do
+      lambda {
+        Flowquery.parse('create table users (user_id int, user_id int)')
+      }.should raise_error(Flowquery::ParseError, /duplicate column: user_id/)
+    end
+
     it 'should not allow references to unknown columns in a where clause' do
       lambda {
         Flowquery.parse(<<-QUERY)

@@ -26,6 +26,11 @@ module Flowquery
   class TableDefinition < SyntaxNode
     def bind_variables(variable_binding)
       self.variable = variable_binding.define(defined_name, self)
+      column_names = Set.new
+      columns.each do |column|
+        raise ParseError, "duplicate column: #{column.name}" if column_names.include? column.name.to_s
+        column_names << column.name.to_s
+      end
     end
 
     def to_s
