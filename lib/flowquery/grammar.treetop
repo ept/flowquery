@@ -36,7 +36,7 @@ grammar Flowquery
 
   # A single declared parameter in a function definition
   rule param_declaration
-    type:identifier separator name:identifier <ParamDeclaration>
+    name:identifier '' <ParamDeclaration>
   end
 
   rule function_rhs

@@ -89,11 +89,7 @@ module Flowquery
     end
 
     def to_s
-      "#{type} #{name}"
-    end
-
-    def label
-      name
+      name.to_s
     end
   end
 
