@@ -33,6 +33,14 @@ module Flowquery
       end
     end
 
+    def track_dependencies(graph)
+      columns.each{|column| column.track_dependencies(graph) }
+    end
+
+    def signature
+      "#{defined_name}(#{columns.map(&:name).join(', ')})"
+    end
+
     def to_s
       "create table #{defined_name} (#{columns.map(&:to_s).join(', ')})"
     end
@@ -40,6 +48,10 @@ module Flowquery
 
 
   class ColumnDeclaration < SyntaxNode
+    def track_dependencies(graph)
+      graph.add_vertex(self)
+    end
+
     def to_s
       "#{name} #{type}"
     end
@@ -171,8 +183,10 @@ module Flowquery
       end
 
       if predicate
-        column_names = table_name.variable.definition.columns.map(&:name)
-        inner_binding = RecordBinding.new(variable_binding, table_name, column_names)
+        table_columns = table_name.variable.definition.columns.each_with_object({}) do |column, columns|
+          columns[column.name.to_s] = column
+        end
+        inner_binding = RecordBinding.new(variable_binding, table_columns)
         predicate.bind_variables(inner_binding)
       end
     end
@@ -217,6 +231,11 @@ module Flowquery
       @functions ||= definitions.select{|definition| definition.is_a? FunctionDefinition }
     end
 
+    # definitions ordered such that all the tables come before all the functions
+    def ordered_definitions
+      tables + functions
+    end
+
     def variables
       return @variables if @variables
       @variables = VariableBinding.new
@@ -235,14 +254,15 @@ module Flowquery
     end
 
     def bind_variables(variable_binding)
-      tables.each{|table| table.bind_variables(variable_binding) }
-      functions.each{|function| function.bind_variables(variable_binding) }
+      ordered_definitions.each do |definition|
+        definition.bind_variables(variable_binding)
+      end
     end
 
     def track_dependencies(graph)
-      functions.each do |function|
-        graph.next_function(function.signature)
-        function.track_dependencies(graph)
+      ordered_definitions.each do |definition|
+        graph.next_function(definition.signature)
+        definition.track_dependencies(graph)
       end
     end
 

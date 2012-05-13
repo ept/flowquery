@@ -1,3 +1,4 @@
+require 'set'
 require 'rubygems'
 require 'treetop'
 

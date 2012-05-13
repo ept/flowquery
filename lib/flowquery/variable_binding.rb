@@ -73,11 +73,10 @@ module Flowquery
   # For example, in the 'where' clause of a 'select' statement, the columns of the table from
   # which we're selecting are made available.
   class RecordBinding < VariableBinding
-    def initialize(parent, source_node, fields)
+    def initialize(parent, fields)
       super(parent)
-      @variables = fields.each_with_object({}) do |field, vars|
-        name = field.to_s
-        vars[name] = Variable.new(name, self).tap{|var| var.definition = source_node }
+      @variables = fields.each_with_object({}) do |(field_name, syntax_node), vars|
+        vars[field_name] = Variable.new(field_name, self).tap{|var| var.definition = syntax_node }
       end
     end
 
