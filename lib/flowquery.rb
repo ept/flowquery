@@ -3,6 +3,10 @@ require 'treetop'
 
 module Flowquery
   class ParseError < Exception; end
+
+  def self.parse(query)
+    Flowquery::QueryFile.parse(query)
+  end
 end
 
 %w(parsetree variable_binding dependency_graph).each do |filename|
