@@ -126,6 +126,15 @@ module Flowquery
   end
 
 
+  # Syntax node for the place where a function is applied to one or more sets of arguments.
+  # Example: f (a) (b, c)
+  # Where f is a function that takes one argument (a), and returns another function that takes
+  # two arguments (b and c). f isn't necessarily just an identifier; it could be a more
+  # complicated expression (the "head expression"), but we don't need to worry about that here.
+  #
+  # In this implementation we attach the dependency graph vertices for each subsequent function
+  # application to the respective argument lists. The vertex for the entire expression is then the
+  # same as the vertex of the last argument list (because function application is left to right).
   class FunctionApplication < SyntaxNode
     def bind_variables(variable_binding)
       head.bind_variables(variable_binding)
