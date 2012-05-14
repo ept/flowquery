@@ -61,6 +61,14 @@ describe 'Query parsing' do
     it 'should allow mutually recursive function definitions' do
       Flowquery.parse('one(x) = two(x); two(x) = one(x)')
     end
+
+    it 'should allow passing functions as arguments' do
+      Flowquery.parse('identity(x) = x; twice(op, x) = op(op(x)); double_whammy(x) = twice(identity, x)')
+    end
+
+    it 'should allow functions that return functions' do
+      Flowquery.parse('identity(x) = x; gimme_a_function(x) = identity; do_it(x) = gimme_a_function (x) (x)')
+    end
   end
 
   describe 'of invalid syntax' do

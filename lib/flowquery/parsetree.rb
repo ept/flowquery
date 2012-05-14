@@ -1,6 +1,6 @@
 module Flowquery
   class SyntaxNode < Treetop::Runtime::SyntaxNode
-    attr_accessor :variable, :dependency_id
+    attr_accessor :variable, :dependency_id, :string_representation
 
     def bind_variables(variable_binding)
       # Subclasses should override this
@@ -10,8 +10,12 @@ module Flowquery
       # Subclasses should override this
     end
 
+    def to_s
+      string_representation || super
+    end
+
     def inspect
-      "#<#{self.class.name}: #{self}>"
+      "#<#{self.class.name}: #{to_s}>"
     end
   end
 
@@ -123,25 +127,50 @@ module Flowquery
 
 
   class FunctionApplication < SyntaxNode
-    def arguments
-      argument_list.arguments
-    end
-
     def bind_variables(variable_binding)
-      self.variable = variable_binding.reference(name, self)
-      arguments.each{|argument| argument.bind_variables(variable_binding) }
-    end
+      head.bind_variables(variable_binding)
+      string_representation = head.to_s
 
-    def track_dependencies(graph)
-      arguments.each{|argument| argument.track_dependencies(graph) }
-      graph.add_vertex(self, :function => variable.definition.label, :params => variable.definition.params.map(&:name))
-      arguments.each_with_index do |argument, index|
-        graph.add_edge(argument, self, :param_index => index)
+      argument_lists.each do |argument_list|
+        argument_list.arguments.each{|argument| argument.bind_variables(variable_binding) }
+        string_representation += "(#{argument_list.arguments.map(&:to_s).join(', ')})"
+        argument_list.string_representation = string_representation
       end
     end
 
+    def track_dependencies(graph)
+      head.track_dependencies(graph)
+      previous_result = head
+
+      # If there are several chained function applications, they are evaluated left to right
+      # (function application is left-associative).
+      argument_lists.each do |argument_list|
+        arguments = argument_list.arguments
+        arguments.each{|argument| argument.track_dependencies(graph) }
+
+        # Add a dependency graph vertex for the function application. If the function definition is
+        # already known, we can copy the declared parameters from the definition.
+        if head.variable && head.variable.definition.is_a?(FunctionDefinition)
+          function_def = head.variable.definition
+          graph.add_vertex(argument_list, :params => [function_def.label] + function_def.params.map(&:name))
+        else
+          graph.add_vertex(argument_list, :params => ['func'] + arguments.map{|arg| '' })
+        end
+
+        ([previous_result] + arguments).each_with_index do |argument, index|
+          graph.add_edge(argument, argument_list, :param_index => index)
+        end
+
+        previous_result = argument_list
+      end
+
+      self.dependency_id = previous_result.dependency_id
+    end
+
     def to_s
-      "#{name}(#{arguments.map(&:to_s).join(', ')})"
+      head.to_s + argument_lists.map {|argument_list|
+        "(#{argument_list.arguments.map(&:to_s).join(', ')})"
+      }.join
     end
   end
 
