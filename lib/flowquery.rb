@@ -10,7 +10,7 @@ module Flowquery
   end
 end
 
-%w(parsetree variable_binding dependency_graph).each do |filename|
+%w(parsetree variable_binding dependency_graph type).each do |filename|
   require File.join(File.dirname(__FILE__), 'flowquery', filename)
 end
 

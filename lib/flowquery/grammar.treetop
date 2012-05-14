@@ -19,7 +19,7 @@ grammar Flowquery
   end
 
   rule column_declaration
-    name:identifier separator type:identifier <ColumnDeclaration>
+    column_name:identifier separator type_name:identifier <ColumnDeclaration>
   end
 
   rule function_definition

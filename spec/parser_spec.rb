@@ -51,11 +51,7 @@ describe 'Query parsing' do
     end
 
     it 'should allow recursive function definitions' do
-      query = Flowquery.parse(<<-QUERY)
-        create table edges(from_vertex int, to_vertex int);
-        outgoing_edges(vertex_id) = select to_vertex from edges where from_vertex = vertex_id;
-        search(root) = search(outgoing_edges(root));
-      QUERY
+      Flowquery.parse('identity(x) = x; foo(x) = foo(identity(x));')
     end
 
     it 'should allow mutually recursive function definitions' do
@@ -69,6 +65,13 @@ describe 'Query parsing' do
     it 'should allow functions that return functions' do
       Flowquery.parse('identity(x) = x; gimme_a_function(x) = identity; do_it(x) = gimme_a_function (x) (x)')
     end
+
+    it 'should automatically iterate scalar functions over set types'
+    # query = Flowquery.parse(<<-QUERY)
+    #   create table edges(from_vertex int, to_vertex int);
+    #   outgoing_edges(vertex_id) = select to_vertex from edges where from_vertex = vertex_id;
+    #   search(root) = search(outgoing_edges(root));
+    # QUERY
   end
 
   describe 'of invalid syntax' do

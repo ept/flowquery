@@ -1,8 +1,11 @@
 module Flowquery
   class DependencyGraph
+    attr_reader :constraints
+
     def initialize
       @dependency_ids = 0
       @functions = []
+      @constraints = []
     end
 
     def next_dependency_id
@@ -31,6 +34,13 @@ module Flowquery
       @function[:forward_edges][from.dependency_id] << {:to => to.dependency_id}.merge(options)
       @function[:backward_edges][to.dependency_id] ||= []
       @function[:backward_edges][to.dependency_id] << {:from => from.dependency_id}.merge(options)
+    end
+
+    # For purposes of type inference, assert that the two given type variables are equivalent
+    # (should be unified).
+    def add_constraint(type1, type2)
+      raise 'nil type constraint' if type1.nil? || type2.nil?
+      @constraints << [type1, type2]
     end
 
     def to_graphviz

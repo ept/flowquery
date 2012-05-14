@@ -1,6 +1,6 @@
 module Flowquery
   class SyntaxNode < Treetop::Runtime::SyntaxNode
-    attr_accessor :variable, :dependency_id, :string_representation
+    attr_accessor :variable, :dependency_id, :string_representation, :type
 
     def bind_variables(variable_binding)
       # Subclasses should override this
@@ -30,11 +30,18 @@ module Flowquery
   class TableDefinition < SyntaxNode
     def bind_variables(variable_binding)
       self.variable = variable_binding.define(defined_name, self)
+
       column_names = Set.new
       columns.each do |column|
-        raise ParseError, "duplicate column: #{column.name}" if column_names.include? column.name.to_s
-        column_names << column.name.to_s
+        colname = column.column_name.to_s
+        raise ParseError, "duplicate column: #{colname}" if column_names.include? colname
+        column_names << colname
       end
+
+      column_types = columns.each_with_object({}) do |column, mapping|
+        mapping[column.column_name.to_s] = column.type
+      end
+      self.type = Type::Table.make(column_types)
     end
 
     def track_dependencies(graph)
@@ -42,7 +49,7 @@ module Flowquery
     end
 
     def signature
-      "#{defined_name}(#{columns.map(&:name).join(', ')})"
+      "#{defined_name}(#{columns.map(&:column_name).join(', ')})"
     end
 
     def to_s
@@ -56,8 +63,12 @@ module Flowquery
       graph.add_vertex(self)
     end
 
+    def type
+      @type ||= Type::Column.make(type_name.to_s)
+    end
+
     def to_s
-      "#{name} #{type}"
+      "#{column_name} #{type_name}"
     end
   end
 
@@ -69,6 +80,7 @@ module Flowquery
 
     def bind_variables(variable_binding)
       self.variable = variable_binding.define(defined_name, self)
+      self.type = Type::Variable.make
       inner_binding = VariableBinding.new(variable_binding)
       params.each{|param| param.bind_variables(inner_binding) }
       value.bind_variables(inner_binding)
@@ -79,6 +91,7 @@ module Flowquery
       value.track_dependencies(graph)
       graph.add_vertex(self)
       graph.add_edge(value, self)
+      graph.add_constraint(type, Type::Function.make(params.map(&:type), value.type))
     end
 
     def signature
@@ -98,6 +111,7 @@ module Flowquery
   class ParamDeclaration < SyntaxNode
     def bind_variables(variable_binding)
       self.variable = variable_binding.define(name, self)
+      self.type = Type::Variable.make # TODO let-polymorphism
     end
 
     def track_dependencies(graph)
@@ -118,6 +132,10 @@ module Flowquery
     def track_dependencies(graph)
       expression.track_dependencies(graph)
       self.dependency_id = expression.dependency_id
+    end
+
+    def type
+      expression.type
     end
 
     def to_s
@@ -142,9 +160,12 @@ module Flowquery
 
       argument_lists.each do |argument_list|
         argument_list.arguments.each{|argument| argument.bind_variables(variable_binding) }
+        argument_list.type = Type::Variable.make
         string_representation += "(#{argument_list.arguments.map(&:to_s).join(', ')})"
         argument_list.string_representation = string_representation
       end
+
+      self.type = argument_lists.last.type
     end
 
     def track_dependencies(graph)
@@ -170,6 +191,8 @@ module Flowquery
           graph.add_edge(argument, argument_list, :param_index => index)
         end
 
+        graph.add_constraint(previous_result.type, Type::Function.make(arguments.map(&:type), argument_list.type))
+
         previous_result = argument_list
       end
 
@@ -187,6 +210,7 @@ module Flowquery
   class VariableReference < SyntaxNode
     def bind_variables(variable_binding)
       self.variable = variable_binding.reference(name, self)
+      self.type = Type::Variable.make
     end
 
     def track_dependencies(graph)
@@ -198,6 +222,8 @@ module Flowquery
       else
         self.dependency_id = variable.definition.dependency_id or raise "untracked variable #{name}"
       end
+
+      graph.add_constraint(type, variable.definition.type)
     end
 
     def to_s
@@ -210,6 +236,7 @@ module Flowquery
     def bind_variables(variable_binding)
       left.bind_variables(variable_binding)
       right.bind_variables(variable_binding)
+      self.type = Type::Boolean.make
     end
 
     def track_dependencies(graph)
@@ -218,6 +245,7 @@ module Flowquery
       graph.add_vertex(self)
       graph.add_edge(left, self)
       graph.add_edge(right, self)
+      graph.add_constraint(left.type, right.type)
     end
 
     def to_s
@@ -236,9 +264,11 @@ module Flowquery
         raise ParseError, "undefined table: #{table_name}"
       end
 
+      self.type = table_name.variable.definition.type # TODO if one column is selected, use type of that column
+
       if predicate
         table_columns = table_name.variable.definition.columns.each_with_object({}) do |column, columns|
-          columns[column.name.to_s] = column
+          columns[column.column_name.to_s] = column
         end
         inner_binding = RecordBinding.new(variable_binding, table_columns)
         predicate.bind_variables(inner_binding)
@@ -252,6 +282,7 @@ module Flowquery
         graph.add_vertex(self, :function => 'filter', :params => ['source', 'predicate'])
         graph.add_edge(table_name, self, :param_index => 0)
         graph.add_edge(predicate, self, :param_index => 1)
+        graph.add_constraint(predicate.type, Type::Boolean.make)
       else
         self.dependency_id = table_name.dependency_id
       end
@@ -274,6 +305,7 @@ module Flowquery
       raise ParseError, 'file is not a complete query' unless tree.is_a? QueryFile
       tree.variables
       tree.dependencies
+      tree.infer_types
       tree
     end
 
@@ -317,6 +349,12 @@ module Flowquery
       ordered_definitions.each do |definition|
         graph.next_function(definition.signature)
         definition.track_dependencies(graph)
+      end
+    end
+
+    def infer_types
+      dependencies.constraints.each do |type1, type2|
+        type1.current_type.unify_with! type2.current_type
       end
     end
 
